@@ -225,8 +225,6 @@ ObjectMgr::ObjectMgr():
     _hiPetNumber(1),
     _creatureSpawnId(1),
     _gameObjectSpawnId(1),
-    _creatureDynamicSpawnId(0x01000000),
-    _gameObjectDynamicSpawnId(0x01000000),
     DBCLocaleIndex(LOCALE_enUS)
 {
     for (uint8 i = 0; i < MAX_CLASSES; ++i)
@@ -1939,7 +1937,7 @@ void ObjectMgr::LoadCreatureGroups()
     {
         Field* fields = result->Fetch();
         uint32 groupId = fields[0].GetUInt32();
-        uint32 creatureId = fields[1].GetUInt32();
+        ObjectGuid::LowType creatureId = fields[1].GetUInt32();
 
         CreatureDataContainer::iterator cditr = _creatureDataStore.find(creatureId);
         CreatureGroupDataContainer::iterator cgitr = _creatureGroupDataStore.find(groupId);
@@ -1967,7 +1965,7 @@ void ObjectMgr::LoadCreatureGroups()
         }
 
         creaturedata->groupdata = groupTemplate;
-        _creatureGroupMapStore.insert(std::pair<uint32, uint32>(groupId,creatureId));
+        _creatureGroupMapStore.insert(std::pair<uint32, ObjectGuid::LowType>(groupId, creatureId));
         groupcount++;
     } while (result->NextRow());
 
@@ -2326,7 +2324,7 @@ void ObjectMgr::LoadGameObjectGroups()
     {
         Field* fields = result->Fetch();
         uint32 groupId = fields[0].GetUInt32();
-        uint32 gameobjectId = fields[1].GetUInt32();
+        ObjectGuid::LowType gameobjectId = fields[1].GetUInt32();
 
         GameObjectDataContainer::iterator gditr = _gameObjectDataStore.find(gameobjectId);
         GameObjectGroupDataContainer::iterator ggitr = _gameObjectGroupDataStore.find(groupId);
@@ -2352,7 +2350,7 @@ void ObjectMgr::LoadGameObjectGroups()
                 continue;
             }
             godata->groupdata = &_gameObjectGroupDataStore[groupId];
-            _gameObjectGroupMapStore.insert(std::pair<uint32, uint32>(groupId, gameobjectId));
+            _gameObjectGroupMapStore.insert(std::pair<uint32, ObjectGuid::LowType>(groupId, gameobjectId));
             groupcount++;
         }
     } while (result->NextRow());
@@ -6791,18 +6789,8 @@ uint32 ObjectMgr::GeneratePetNumber()
     return _hiPetNumber++;
 }
 
-uint32 ObjectMgr::GenerateCreatureSpawnId(bool dynamic)
+uint32 ObjectMgr::GenerateCreatureSpawnId()
 {
-    if (dynamic)
-    {
-        if (_creatureDynamicSpawnId >= uint32(0xFFFFFFFE))
-        {
-            TC_LOG_ERROR("misc", "Creature dynamic spawn id overflow!! Can't continue, shutting down server. ");
-            World::StopNow(ERROR_EXIT_CODE);
-        }
-        return _creatureDynamicSpawnId++;
-    }
-
     if (_creatureSpawnId >= uint32(0xFFFFFF))
     {
         TC_LOG_ERROR("misc", "Creature spawn id overflow!! Can't continue, shutting down server. Search on forum for TCE00007 for more info.");
@@ -6811,18 +6799,8 @@ uint32 ObjectMgr::GenerateCreatureSpawnId(bool dynamic)
     return _creatureSpawnId++;
 }
 
-uint32 ObjectMgr::GenerateGameObjectSpawnId(bool dynamic)
+uint32 ObjectMgr::GenerateGameObjectSpawnId()
 {
-    if (dynamic)
-    {
-        if (_gameObjectDynamicSpawnId >= uint32(0xFFFFFFFE))
-        {
-            TC_LOG_ERROR("misc", "GameObject dynamic spawn id overflow!! Can't continue, shutting down server. ");
-            World::StopNow(ERROR_EXIT_CODE);
-        }
-        return _gameObjectDynamicSpawnId++;
-    }
-
     if (_gameObjectSpawnId >= uint32(0xFFFFFF))
     {
         TC_LOG_ERROR("misc", "GameObject spawn id overflow!! Can't continue, shutting down server. Search on forum for TCE00007 for more info. ");
@@ -6838,7 +6816,7 @@ bool ObjectMgr::SpawnCreatureGroup(uint32 groupId, Map* map, bool ignoreRespawn,
     if (groupId <= SPAWNGROUP_MAX_SYSTEMGROUPID || itr == _creatureGroupDataStore.end())
         return false;
 
-    std::vector<uint32> spawnList;
+    std::vector<ObjectGuid::LowType> spawnList;
     
     if (!GetCreaturesInGroup(groupId, spawnList))
         return false;
@@ -6855,7 +6833,7 @@ bool ObjectMgr::SpawnCreatureGroup(uint32 groupId, Map* map, bool ignoreRespawn,
         return false;
     }
 
-    for (uint32 guid : spawnList)
+    for (ObjectGuid::LowType guid : spawnList)
     {
         if (const CreatureData* cdata = GetCreatureData(guid))
         {
@@ -6897,7 +6875,7 @@ bool ObjectMgr::DespawnCreatureGroup(uint32 groupId, Map* map, bool deleteRespaw
     if (groupId <= SPAWNGROUP_MAX_SYSTEMGROUPID || itr == _creatureGroupDataStore.end())
         return false;
 
-    std::vector<uint32> creaturelist;
+    std::vector<ObjectGuid::LowType> creaturelist;
     if (!GetCreaturesInGroup(groupId, creaturelist))
         return false;
 
@@ -6913,7 +6891,7 @@ bool ObjectMgr::DespawnCreatureGroup(uint32 groupId, Map* map, bool deleteRespaw
         return false;
     }
 
-    for (uint32 guid : creaturelist)
+    for (ObjectGuid::LowType guid : creaturelist)
     {
         std::vector<Creature*> unloadList;
         // Find all instances of this spawnId
@@ -6945,7 +6923,7 @@ bool ObjectMgr::SpawnGOGroup(uint32 groupId, Map* map, bool ignoreRespawn, bool 
     if (groupId <= SPAWNGROUP_MAX_SYSTEMGROUPID || itr == _gameObjectGroupDataStore.end())
         return false;
 
-    std::vector<uint32> golist;
+    std::vector<ObjectGuid::LowType> golist;
     
     if (!GetGameObjectsInGroup(groupId, golist))
         return false;
@@ -6962,7 +6940,7 @@ bool ObjectMgr::SpawnGOGroup(uint32 groupId, Map* map, bool ignoreRespawn, bool 
         return false;
     }
 
-    for (uint32 guid : golist)
+    for (ObjectGuid::LowType guid : golist)
     {
         if (const GameObjectData* godata = GetGOData(guid))
         {
@@ -7004,7 +6982,7 @@ bool ObjectMgr::DespawnGOGroup(uint32 groupId, Map* map, bool deleteRespawnTimes
     if (groupId <= SPAWNGROUP_MAX_SYSTEMGROUPID || itr == _gameObjectGroupDataStore.end())
         return false;
 
-    std::vector<uint32> golist;
+    std::vector<ObjectGuid::LowType> golist;
     
     if (!GetGameObjectsInGroup(groupId, golist))
         return false;
@@ -7021,7 +6999,7 @@ bool ObjectMgr::DespawnGOGroup(uint32 groupId, Map* map, bool deleteRespawnTimes
         return false;
     }
 
-    for (uint32 guid : golist)
+    for (ObjectGuid::LowType guid : golist)
     {
         std::vector<GameObject*> unloadList;
         // Find all instances of this spawnId
