@@ -79,7 +79,7 @@ enum WarlockSpells
     SPELL_WARLOCK_UNSTABLE_AFFLICTION_DISPEL        = 31117,
     SPELL_WARLOCK_FEAR                              = 5782,
     //Does not work 100% properly because target will not flee. I haven't found a spell that works correctly for both fleeing and lasting 20 sec
-    SPELL_WARLOCK_FEAR_NO_ROOT                      = 130616
+    SPELL_WARLOCK_FEAR_NO_ROOT                      = 204730
 };
 
 enum WarlockSpellIcons
@@ -1480,6 +1480,46 @@ class spell_warl_fear : public SpellScriptLoader
         }
 };
 
+class spell_warl_fear_remove_root : public SpellScriptLoader
+{
+    public: 
+    spell_warl_fear_remove_root() : SpellScriptLoader("spell_warl_fear_remove_root") {}
+    
+    class spell_warl_fear_remove_root_SpellScript : public SpellScript
+    {
+        PrepareSpellScript(spell_warl_fear_remove_root_SpellScript);
+
+        bool Validate(SpellInfo const*) override
+        {
+            if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_FEAR_NO_ROOT))
+                return false;
+            return true;
+        }
+
+        void HandleAfterHit()
+        {
+            if (Aura* aura = GetHitAura())
+                if (AuraEffect* auraEff = aura->GetEffect(EFFECT_0))
+                {
+                    aura->SetMaxDuration(20 * IN_MILLISECONDS);
+                    aura->SetDuration(20 * IN_MILLISECONDS);
+                    aura->RefreshDuration();
+                }
+                    
+        }
+
+        void Register() override
+        {
+            AfterHit += SpellHitFn(spell_warl_fear_remove_root_SpellScript::HandleAfterHit);
+        }
+    };
+
+    SpellScript* GetSpellScript() const override
+    {
+        return new spell_warl_fear_remove_root_SpellScript();
+    }
+};
+
 void AddSC_warlock_spell_scripts()
 {
     new spell_warl_aftermath();
@@ -1516,4 +1556,5 @@ void AddSC_warlock_spell_scripts()
 
     //Added by Gugu
     new spell_warl_fear();
+    new spell_warl_fear_remove_root();
 }
