@@ -76,7 +76,10 @@ enum WarlockSpells
     SPELL_WARLOCK_SOUL_SWAP_MOD_COST                = 92794,
     SPELL_WARLOCK_SOUL_SWAP_DOT_MARKER              = 92795,
     SPELL_WARLOCK_UNSTABLE_AFFLICTION               = 30108,
-    SPELL_WARLOCK_UNSTABLE_AFFLICTION_DISPEL        = 31117
+    SPELL_WARLOCK_UNSTABLE_AFFLICTION_DISPEL        = 31117,
+    SPELL_WARLOCK_FEAR                              = 5782,
+    //Does not work 100% properly because target will not flee. I haven't found a spell that works correctly for both fleeing and lasting 20 sec
+    SPELL_WARLOCK_FEAR_NO_ROOT                      = 130616
 };
 
 enum WarlockSpellIcons
@@ -1434,6 +1437,49 @@ class spell_warl_unstable_affliction : public SpellScriptLoader
         }
 };
 
+//5782 - Fear
+class spell_warl_fear : public SpellScriptLoader
+{
+    public:
+        spell_warl_fear() : SpellScriptLoader("spell_warl_fear") {}
+
+        class spell_warl_fear_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_warl_fear_SpellScript);
+
+            bool Validate(SpellInfo const*) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_FEAR))
+                    return false;
+                return true;
+            }
+
+            void HandleDummy(SpellEffIndex effIndex)
+            {
+                Unit* caster = GetCaster();
+                if (!caster)
+                    return;
+
+                Unit* target = GetExplTargetUnit();
+                if (!target)
+                    return;
+
+                //There was a Fear glyph but it was removed with legion
+                caster->CastSpell(target, SPELL_WARLOCK_FEAR_NO_ROOT, true);
+            }
+
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_warl_fear_SpellScript::HandleDummy, EFFECT_0, SPELL_EFFECT_DUMMY);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_warl_fear_SpellScript();
+        }
+};
+
 void AddSC_warlock_spell_scripts()
 {
     new spell_warl_aftermath();
@@ -1467,4 +1513,7 @@ void AddSC_warlock_spell_scripts()
     new spell_warl_soul_swap_override();
     new spell_warl_soulshatter();
     new spell_warl_unstable_affliction();
+
+    //Added by Gugu
+    new spell_warl_fear();
 }
