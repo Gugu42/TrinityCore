@@ -81,7 +81,9 @@ enum WarlockSpells
     SPELL_WARLOCK_FEAR_NO_ROOT                      = 204730,
     SPELL_WARLOCK_IMMOLATE_DOT                      = 216145,
     SPELL_WARLOCK_CATACLYSM                         = 152108,
-    SPELL_WARLOCK_CONFLAGRATE                       = 17962
+    SPELL_WARLOCK_CONFLAGRATE                       = 17962,
+    SPELL_WARLOCK_SHADOWBURN                        = 17877,
+    SPELL_WARLOCK_SHADOWBURN_SHARDS                 = 29341
 };
 
 enum WarlockSpellIcons
@@ -1571,6 +1573,87 @@ public:
     }
 };
 
+//17877 - Shadowburn
+class spell_warl_shadowburn : public SpellScriptLoader
+{
+    public:
+        spell_warl_shadowburn() : SpellScriptLoader("spell_warl_shadowburn") {}
+
+        class spell_warl_shadowburn_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_warl_shadowburn_AuraScript);
+
+            bool Validate(SpellInfo const*) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_SHADOWBURN))
+                    return false;
+                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_SHADOWBURN_SHARDS))
+                    return false;
+
+                return true;
+            }
+
+            void HandleRemove(AuraEffect const* aurEff, AuraEffectHandleModes)
+            {
+                if (Unit* caster = GetCaster())
+                {
+                    caster->CastSpell(caster, SPELL_WARLOCK_SHADOWBURN_SHARDS, true);
+                }
+            }
+
+            void Register() override
+            {
+                OnEffectRemove += AuraEffectApplyFn(spell_warl_shadowburn_AuraScript::HandleRemove, EFFECT_1, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL_OR_REAPPLY_MASK);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_warl_shadowburn_AuraScript();
+        }
+
+};
+
+//29341 - Shadowburn
+class spell_warl_shadowburn_shards : public SpellScriptLoader
+{
+    public:
+        spell_warl_shadowburn_shards() : SpellScriptLoader("spell_warl_shadowburn_shards") {}
+        
+        class spell_warl_shadowburn_shards_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_warl_shadowburn_shards_SpellScript);
+
+            bool Validate(SpellInfo const*) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_SHADOWBURN_SHARDS))
+                    return false;
+                return true;
+            }
+
+            void HandleEnergize(SpellEffIndex eff)
+            {
+                if (Unit* caster = GetCaster())
+                {
+                    int32 amount = sSpellMgr->GetSpellInfo(SPELL_WARLOCK_SHADOWBURN_SHARDS)->GetEffect(EFFECT_0)->BasePoints;
+                    uint8 current_power = caster->GetPower(POWER_SOUL_SHARDS);
+                    if (current_power + amount <= caster->GetMaxPower(POWER_SOUL_SHARDS))
+                        caster->SetPower(POWER_SOUL_SHARDS, current_power + amount);
+                }
+            }
+
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_warl_shadowburn_shards_SpellScript::HandleEnergize, EFFECT_0, SPELL_EFFECT_ENERGIZE);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_warl_shadowburn_shards_SpellScript();
+        }
+};
+
 void AddSC_warlock_spell_scripts()
 {
     new spell_warl_aftermath();
@@ -1609,4 +1692,6 @@ void AddSC_warlock_spell_scripts()
     new spell_warl_fear_remove_root();
     new spell_warl_immolate();
     new spell_warl_conflagrate();
+    new spell_warl_shadowburn();
+    new spell_warl_shadowburn_shards();
 }
