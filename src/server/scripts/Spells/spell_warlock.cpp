@@ -78,9 +78,10 @@ enum WarlockSpells
     SPELL_WARLOCK_UNSTABLE_AFFLICTION               = 30108,
     SPELL_WARLOCK_UNSTABLE_AFFLICTION_DISPEL        = 31117,
     SPELL_WARLOCK_FEAR                              = 5782,
-    //Does not work 100% properly because target will not flee. I haven't found a spell that works correctly for both fleeing and lasting 20 sec
     SPELL_WARLOCK_FEAR_NO_ROOT                      = 204730,
-    SPELL_WARLOCK_IMMOLATE_DOT                      = 216145
+    SPELL_WARLOCK_IMMOLATE_DOT                      = 216145,
+    SPELL_WARLOCK_CATACLYSM                         = 152108,
+    SPELL_WARLOCK_CONFLAGRATE                       = 17962
 };
 
 enum WarlockSpellIcons
@@ -171,42 +172,6 @@ class spell_warl_banish : public SpellScriptLoader
         SpellScript* GetSpellScript() const override
         {
             return new spell_warl_banish_SpellScript();
-        }
-};
-
-// 17962 - Conflagrate - Updated to 4.3.4
-class spell_warl_conflagrate : public SpellScriptLoader
-{
-    public:
-        spell_warl_conflagrate() : SpellScriptLoader("spell_warl_conflagrate") { }
-
-        class spell_warl_conflagrate_SpellScript : public SpellScript
-        {
-            PrepareSpellScript(spell_warl_conflagrate_SpellScript);
-
-            bool Validate(SpellInfo const* /*spellInfo*/) override
-            {
-                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_IMMOLATE))
-                    return false;
-                return true;
-            }
-
-            // 6.x dmg formula in tooltip
-            // void HandleHit(SpellEffIndex /*effIndex*/)
-            // {
-            //     if (AuraEffect const* aurEff = GetHitUnit()->GetAuraEffect(SPELL_WARLOCK_IMMOLATE, EFFECT_2, GetCaster()->GetGUID()))
-            //         SetHitDamage(CalculatePct(aurEff->GetAmount(), GetSpellInfo()->Effects[EFFECT_1].CalcValue(GetCaster())));
-            // }
-
-            void Register() override
-            {
-                //OnEffectHitTarget += SpellEffectFn(spell_warl_conflagrate_SpellScript::HandleHit, EFFECT_0, SPELL_EFFECT_SCHOOL_DAMAGE);
-            }
-        };
-
-        SpellScript* GetSpellScript() const override
-        {
-            return new spell_warl_conflagrate_SpellScript();
         }
 };
 
@@ -1566,13 +1531,51 @@ class spell_warl_immolate : public SpellScriptLoader
         }
 };
 
+//17962 - Conflagrate
+class spell_warl_conflagrate : public SpellScriptLoader
+{
+public:
+    spell_warl_conflagrate() : SpellScriptLoader("spell_warl_conflagrate") {}
+
+    class spell_warl_conflagrate_SpellScript : public SpellScript
+    {
+        PrepareSpellScript(spell_warl_conflagrate_SpellScript);
+
+        bool Validate(SpellInfo const*) override
+        {
+            if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_CONFLAGRATE))
+                return false;
+            return true;
+        }
+
+        void HandleEnergize(SpellEffIndex eff)
+        {
+            if (Unit* caster = GetCaster()) 
+            {
+                int32 amount_to_add = sSpellMgr->GetSpellInfo(SPELL_WARLOCK_CONFLAGRATE)->GetEffect(EFFECT_1)->BasePoints;
+                uint8 current_power = caster->GetPower(POWER_SOUL_SHARDS);
+                if (current_power + amount_to_add <= caster->GetMaxPower(POWER_SOUL_SHARDS))
+                    caster->SetPower(POWER_SOUL_SHARDS, current_power + amount_to_add);
+            }
+        }
+
+        void Register() override
+        {
+            OnEffectHitTarget += SpellEffectFn(spell_warl_conflagrate_SpellScript::HandleEnergize, EFFECT_1, SPELL_EFFECT_ENERGIZE);
+        }
+    };
+
+    SpellScript* GetSpellScript() const override
+    {
+        return new spell_warl_conflagrate_SpellScript();
+    }
+};
 
 void AddSC_warlock_spell_scripts()
 {
     new spell_warl_aftermath();
     new spell_warl_bane_of_doom();
     new spell_warl_banish();
-    new spell_warl_conflagrate();
     new spell_warl_create_healthstone();
     new spell_warl_demonic_circle_summon();
     new spell_warl_demonic_circle_teleport();
@@ -1605,4 +1608,5 @@ void AddSC_warlock_spell_scripts()
     new spell_warl_fear();
     new spell_warl_fear_remove_root();
     new spell_warl_immolate();
+    new spell_warl_conflagrate();
 }
