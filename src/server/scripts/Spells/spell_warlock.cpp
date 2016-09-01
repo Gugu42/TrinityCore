@@ -708,7 +708,7 @@ class spell_warl_haunt : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_HAUNT_HEAL))
+                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_HAUNT))
                     return false;
                 return true;
             }
@@ -717,8 +717,8 @@ class spell_warl_haunt : public SpellScriptLoader
             {
                 if (Unit* caster = GetCaster())
                 {
-                    int32 amount = aurEff->GetAmount();
-                    GetTarget()->CastCustomSpell(caster, SPELL_WARLOCK_HAUNT_HEAL, &amount, NULL, NULL, true, NULL, aurEff, GetCasterGUID());
+                    if(Player* player = caster->ToPlayer())
+                        player->GetSpellHistory()->ModifyCooldown(SPELL_WARLOCK_HAUNT, -15 * IN_MILLISECONDS);
                 }
             }
 
